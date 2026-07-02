@@ -138,6 +138,15 @@ exports.transitionTask = async (req, res) => {
     }
     const task = await MilestoneTask.transitionStatus(req.params.id, status);
     if (!task) return res.status(404).json({ error: 'Task not found.' });
+
+    if (status === 'COMPLETED' || status === 'SKIPPED') {
+      const allTasks = await MilestoneTask.findByMilestone(task.milestone_id);
+      const allDone = allTasks.every(t => t.status === 'COMPLETED' || t.status === 'SKIPPED');
+      if (allDone) {
+        await Milestone.transitionStatus(task.milestone_id, 'COMPLETED');
+      }
+    }
+
     res.json({ message: `Task ${status}.`, task });
   } catch (err) {
     console.error('Transition task error:', err);

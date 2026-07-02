@@ -74,19 +74,23 @@ exports.generate = async (req, res) => {
     const tracking = await TrackingToken.generate(jobCardId, req.user.id);
     const trackingUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/track/${tracking.token}`;
 
-    const jobCard = await JobCard.findById(jobCardId);
-    if (jobCard?.customer_phone) {
-      const msg = `Ikram Automotive: Track your ${jobCard.make} ${jobCard.model} progress here: ${trackingUrl}`;
-      const log = await Notification.log({
-        jobCardId,
-        recipientType: 'sms',
-        recipientAddress: jobCard.customer_phone,
-        subject: 'Tracking Link',
-        message: msg,
-        createdBy: req.user.id,
-      });
-      const result = await sendNotification({ type: 'sms', to: jobCard.customer_phone, message: msg });
-      await Notification.updateStatus(log.id, result.success ? 'sent' : 'failed', result.response || result.error);
+    try {
+      const jobCard = await JobCard.findById(jobCardId);
+      if (jobCard?.customer_phone) {
+        const msg = `Ikram Automotive: Track your ${jobCard.make} ${jobCard.model} progress here: ${trackingUrl}`;
+        const log = await Notification.log({
+          jobCardId,
+          recipientType: 'sms',
+          recipientAddress: jobCard.customer_phone,
+          subject: 'Tracking Link',
+          message: msg,
+          createdBy: req.user.id,
+        });
+        const result = await sendNotification({ type: 'sms', to: jobCard.customer_phone, message: msg });
+        await Notification.updateStatus(log.id, result.success ? 'sent' : 'failed', result.response || result.error);
+      }
+    } catch (_) {
+      console.warn('Failed to send SMS notification for tracking link (provider not configured).');
     }
 
     res.status(201).json({
