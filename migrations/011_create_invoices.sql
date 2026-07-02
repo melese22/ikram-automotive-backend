@@ -1,4 +1,7 @@
-CREATE TYPE invoice_status AS ENUM ('DRAFT', 'ISSUED', 'PAID', 'CANCELLED');
+DO $$ BEGIN
+  CREATE TYPE invoice_status AS ENUM ('DRAFT', 'ISSUED', 'PAID', 'CANCELLED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

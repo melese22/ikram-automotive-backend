@@ -1,4 +1,7 @@
-CREATE TYPE line_item_type AS ENUM ('labor', 'part', 'other');
+DO $$ BEGIN
+  CREATE TYPE line_item_type AS ENUM ('labor', 'part', 'other');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS invoice_line_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
