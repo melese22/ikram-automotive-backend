@@ -22,10 +22,19 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://https-github-com-melese22-ikram-aut.vercel.app',
+  'https://https-github-com-melese22-ikram-automotive-frontend.vercel.app',
+];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? process.env.FRONTEND_URL
-    : 'http://localhost:3000',
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true);
+    cb(null, true);
+  },
   credentials: true,
 }));
 
