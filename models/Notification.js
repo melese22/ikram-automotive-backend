@@ -4,7 +4,7 @@ class Notification {
   static async log({ jobCardId, recipientType, recipientAddress, subject, message, status, providerResponse, createdBy }) {
     const { rows } = await db.query(
       `INSERT INTO notification_log (job_card_id, recipient_type, recipient_address, subject, message, status, provider_response, created_by)
-       VALUES (CAST($1 AS UUID), $2, $3, $4, $5, $6, $7, $8)
+       VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [jobCardId || null, recipientType, recipientAddress, subject || null, message, status || 'pending', providerResponse || null, createdBy]
     );
@@ -51,7 +51,7 @@ class Notification {
       `UPDATE notification_log SET status = $1, provider_response = $2,
         sent_at = CASE WHEN $1::text = 'sent' THEN NOW() ELSE sent_at END,
         updated_at = NOW()
-       WHERE id = $3 RETURNING *`,
+       WHERE id = $3::uuid RETURNING *`,
       [status, providerResponse || null, id]
     );
     return rows[0];
