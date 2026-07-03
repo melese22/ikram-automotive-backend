@@ -32,8 +32,7 @@ exports.send = async (req, res) => {
     res.json({ message: 'Notification sent.', notification: updated });
   } catch (err) {
     console.error('Send notification error:', err);
-    const m = err.message || err;
-    res.status(500).json({ error: 'Internal server error.', detail: m });
+    res.status(500).json({ error: 'Internal server error.' });
   }
 };
 
