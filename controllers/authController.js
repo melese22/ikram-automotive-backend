@@ -138,13 +138,13 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
     await User.setResetToken(user.id, resetToken, expiresAt);
 
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
-    await sendEmail({
+    const emailResult = await sendEmail({
       to: email,
       subject: 'Password Reset — Ikram Automotive',
       text: `Reset your password here: ${resetUrl}. This link expires in 1 hour.`,
@@ -152,6 +152,9 @@ exports.forgotPassword = async (req, res) => {
     });
 
     console.log(`Password reset link for ${email}: ${resetUrl}`);
+    if (!emailResult.success) {
+      console.log(`Email delivery failed: ${emailResult.error} — reset token still saved`);
+    }
 
     res.json({ message: 'If that email exists, a reset link has been sent.' });
   } catch (err) {
