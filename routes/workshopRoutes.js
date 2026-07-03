@@ -4,6 +4,8 @@ const workshopController = require('../controllers/workshopController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 
+router.get('/public', workshopController.getAll);
+
 router.use(authenticate);
 
 router.get('/overview', authorize('SuperAdmin'), workshopController.overview);

@@ -1,4 +1,7 @@
+const bcrypt = require('bcryptjs');
 const Appointment = require('../models/Appointment');
+const User = require('../models/User');
+const Vehicle = require('../models/Vehicle');
 
 function generateTimeSlots(existing, slotDurationMinutes = 30) {
   const slots = [];
@@ -164,6 +167,55 @@ exports.delete = async (req, res) => {
     res.json({ message: 'Appointment deleted.' });
   } catch (err) {
     console.error('Delete appointment error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+exports.getPublicSlots = async (req, res) => {
+  try {
+    const { date, workshopId } = req.query;
+    if (!date || !workshopId) {
+      return res.status(400).json({ error: 'date and workshopId query parameters required.' });
+    }
+
+    const existing = await Appointment.getSlots(workshopId, date);
+    const slots = generateTimeSlots(existing);
+    res.json({ date, slots });
+  } catch (err) {
+    console.error('Get public slots error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+exports.publicBook = async (req, res) => {
+  try {
+    const { name, phone, email, make, model, year, plateNumber, workshopId, title, scheduledDate, startTime, endTime, notes } = req.body;
+
+    if (!name || !phone || !make || !model || !workshopId || !title || !scheduledDate || !startTime || !endTime) {
+      return res.status(400).json({ error: 'name, phone, make, model, workshopId, title, scheduledDate, startTime, endTime are required.' });
+    }
+
+    let user = await User.findByPhone(phone);
+    if (!user) {
+      const passwordHash = await bcrypt.hash(phone.slice(-6), 12);
+      user = await User.create({
+        name, email, phone, passwordHash, role: 'Customer', workshopId,
+      });
+    }
+
+    const existingVehicles = await Vehicle.findAllByCustomer(user.id);
+    let vehicle = existingVehicles.find(v => v.plate_number === plateNumber);
+    if (!vehicle) {
+      vehicle = await Vehicle.create({ plateNumber, make, model, year: year || null, customerId: user.id, workshopId });
+    }
+
+    const appointment = await Appointment.create({
+      workshopId, customerId: user.id, vehicleId: vehicle.id, title, scheduledDate, startTime, endTime, notes, createdBy: user.id,
+    });
+
+    res.status(201).json({ message: 'Appointment booked! We will confirm shortly.', appointment });
+  } catch (err) {
+    console.error('Public book error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

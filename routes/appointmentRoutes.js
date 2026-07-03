@@ -4,6 +4,9 @@ const appointmentController = require('../controllers/appointmentController');
 const { authenticate } = require('../middlewares/authMiddleware');
 const { authorize } = require('../middlewares/roleMiddleware');
 
+router.get('/public-slots', appointmentController.getPublicSlots);
+router.post('/public-book', appointmentController.publicBook);
+
 router.use(authenticate);
 
 router.get('/mine', authorize('Customer'), appointmentController.getMyAppointments);
