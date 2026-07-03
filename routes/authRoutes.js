@@ -6,6 +6,8 @@ const { authorize } = require('../middlewares/roleMiddleware');
 
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 router.get('/me', authenticate, authController.getMe);
 router.get('/users', authenticate, authorize('SuperAdmin', 'WorkshopManager'), authController.getUsers);
 

@@ -1,6 +1,8 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { sendEmail } = require('../services/notificationService');
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -118,6 +120,71 @@ exports.getUsers = async (req, res) => {
     res.json({ users });
   } catch (err) {
     console.error('Get users error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return res.json({ message: 'If that email exists, a reset link has been sent.' });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    await User.setResetToken(user.id, resetToken, expiresAt);
+
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+
+    await sendEmail({
+      to: email,
+      subject: 'Password Reset — Ikram Automotive',
+      text: `Reset your password here: ${resetUrl}. This link expires in 1 hour.`,
+      html: `<p>Reset your password here:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link expires in 1 hour.</p>`,
+    });
+
+    console.log(`Password reset link for ${email}: ${resetUrl}`);
+
+    res.json({ message: 'If that email exists, a reset link has been sent.' });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and password are required.' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+
+    const user = await User.findByResetToken(token);
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token.' });
+    }
+
+    const saltRounds = parseInt(process.env.BCRYPT_SALT_ROUNDS) || 12;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    await User.updatePassword(user.id, passwordHash);
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (err) {
+    console.error('Reset password error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

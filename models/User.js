@@ -51,6 +51,32 @@ class User {
     return rows;
   }
 
+  static async findByResetToken(token) {
+    const { rows } = await db.query(
+      `SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW()`,
+      [token]
+    );
+    return rows[0];
+  }
+
+  static async setResetToken(id, token, expiresAt) {
+    const { rows } = await db.query(
+      `UPDATE users SET password_reset_token = $1, password_reset_expires = $2, updated_at = NOW()
+       WHERE id = $3 RETURNING id, name, email, phone, role, workshop_id`,
+      [token, expiresAt, id]
+    );
+    return rows[0];
+  }
+
+  static async updatePassword(id, passwordHash) {
+    const { rows } = await db.query(
+      `UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL, updated_at = NOW()
+       WHERE id = $2 RETURNING id, name, email, phone, role, workshop_id`,
+      [passwordHash, id]
+    );
+    return rows[0];
+  }
+
   static async update(id, fields) {
     const keys = Object.keys(fields);
     const values = Object.values(fields);
