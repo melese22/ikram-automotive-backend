@@ -66,8 +66,8 @@ class Invoice {
 
   static async updateStatus(id, status, paidAt) {
     const updateFields = { status };
-    if (status === 'ISSUED') updateFields.issued_at = new Date();
-    if (status === 'PAID') updateFields.paid_at = paidAt || new Date();
+    if (status === 'ISSUED') updateFields.issued_at = new Date().toISOString();
+    if (status === 'PAID') updateFields.paid_at = (paidAt || new Date()).toISOString();
 
     const keys = Object.keys(updateFields);
     const values = Object.values(updateFields);
