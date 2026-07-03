@@ -2,6 +2,7 @@ const Invoice = require('../models/Invoice');
 const InvoiceLineItem = require('../models/InvoiceLineItem');
 const JobCard = require('../models/JobCard');
 const PartUsed = require('../models/PartUsed');
+const { initPayment, verifyPayment } = require('../services/chapaService');
 
 exports.generate = async (req, res) => {
   try {
@@ -158,6 +159,92 @@ exports.updateStatus = async (req, res) => {
     res.json({ message: `Invoice ${status.toLowerCase()}.`, invoice });
   } catch (err) {
     console.error('Update invoice status error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+exports.initiatePayment = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found.' });
+
+    if (invoice.status === 'PAID') {
+      return res.status(400).json({ error: 'Invoice is already paid.' });
+    }
+
+    if (invoice.status === 'DRAFT') {
+      return res.status(400).json({ error: 'Issue the invoice before requesting payment.' });
+    }
+
+    if (invoice.chapa_pay_url) {
+      return res.json({ checkoutUrl: invoice.chapa_pay_url });
+    }
+
+    const txRef = `INV-${invoice.invoice_number}-${Date.now()}`;
+    const callbackUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/invoices/payment-callback`;
+    const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invoices/${invoice.id}?paid=pending`;
+
+    const result = await initPayment({
+      amount: invoice.total,
+      email: invoice.customer_email || invoice.customer_phone || 'customer@example.com',
+      firstName: invoice.customer_name || 'Customer',
+      lastName: '',
+      txRef,
+      callbackUrl,
+      returnUrl,
+    });
+
+    if (result.status !== 'success') {
+      return res.status(502).json({ error: 'Payment initiation failed.', details: result.message });
+    }
+
+    const checkoutUrl = result.data.checkout_url;
+    await Invoice.updatePaymentRef(invoice.id, checkoutUrl, txRef);
+
+    res.json({ checkoutUrl });
+  } catch (err) {
+    console.error('Initiate payment error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+exports.paymentCallback = async (req, res) => {
+  try {
+    const { tx_ref, status } = req.body;
+
+    if (!tx_ref) {
+      return res.status(400).json({ error: 'Missing tx_ref.' });
+    }
+
+    const verification = await verifyPayment(tx_ref);
+
+    if (verification.status === 'success' && verification.data?.status === 'success') {
+      const invoiceNumber = tx_ref.split('-').slice(1, 3).join('-');
+      const invoice = await Invoice.findByNumber(invoiceNumber);
+      if (invoice && invoice.status !== 'PAID') {
+        await Invoice.updateStatus(invoice.id, 'PAID');
+      }
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Payment callback error:', err);
+    res.json({ received: true });
+  }
+};
+
+exports.getPaymentStatus = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found.' });
+
+    res.json({
+      status: invoice.status,
+      paidAt: invoice.paid_at,
+      chapaPayUrl: invoice.chapa_pay_url,
+    });
+  } catch (err) {
+    console.error('Payment status error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

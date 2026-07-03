@@ -1,0 +1,3 @@
+ALTER TABLE invoices
+ADD COLUMN IF NOT EXISTS chapa_pay_url TEXT,
+ADD COLUMN IF NOT EXISTS chapa_tx_ref VARCHAR(255);

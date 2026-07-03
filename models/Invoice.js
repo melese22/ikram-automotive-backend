@@ -79,6 +79,19 @@ class Invoice {
     return rows[0];
   }
 
+  static async findByNumber(invoiceNumber) {
+    const { rows } = await db.query('SELECT * FROM invoices WHERE invoice_number = $1', [invoiceNumber]);
+    return rows[0];
+  }
+
+  static async updatePaymentRef(id, chapaPayUrl, chapaTxRef) {
+    const { rows } = await db.query(
+      `UPDATE invoices SET chapa_pay_url = $1, chapa_tx_ref = $2, updated_at = NOW() WHERE id = $3 RETURNING *`,
+      [chapaPayUrl, chapaTxRef, id]
+    );
+    return rows[0];
+  }
+
   static async nextInvoiceNumber(workshopId) {
     const year = new Date().getFullYear();
     const { rows } = await db.query(
