@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const Vehicle = require('../models/Vehicle');
+const { emitToWorkshop } = require('../services/socketService');
 
 function generateTimeSlots(existing, slotDurationMinutes = 30) {
   const slots = [];
@@ -48,6 +49,8 @@ exports.create = async (req, res) => {
       notes,
       createdBy: req.user.id,
     });
+
+    emitToWorkshop(req.user.workshop_id, 'appointment:created', appointment);
 
     res.status(201).json({ message: 'Appointment created.', appointment });
   } catch (err) {
@@ -142,6 +145,8 @@ exports.updateStatus = async (req, res) => {
     const appointment = await Appointment.updateStatus(req.params.id, status);
     if (!appointment) return res.status(404).json({ error: 'Appointment not found.' });
 
+    emitToWorkshop(appointment.workshop_id, 'appointment:statusChanged', appointment);
+
     res.json({ message: `Appointment ${status}.`, appointment });
   } catch (err) {
     console.error('Update appointment status error:', err);
@@ -212,6 +217,8 @@ exports.publicBook = async (req, res) => {
     const appointment = await Appointment.create({
       workshopId, customerId: user.id, vehicleId: vehicle.id, title, scheduledDate, startTime, endTime, notes, createdBy: user.id,
     });
+
+    emitToWorkshop(workshopId, 'appointment:created', appointment);
 
     res.status(201).json({ message: 'Appointment booked! We will confirm shortly.', appointment });
   } catch (err) {

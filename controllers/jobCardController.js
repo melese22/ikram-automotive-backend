@@ -1,6 +1,7 @@
 const JobCard = require('../models/JobCard');
 const Notification = require('../models/Notification');
 const { sendNotification } = require('../services/notificationService');
+const { emitToWorkshop } = require('../services/socketService');
 
 exports.create = async (req, res) => {
   try {
@@ -16,6 +17,8 @@ exports.create = async (req, res) => {
       createdBy: req.user.id,
       workshopId: req.user.workshop_id,
     });
+
+    emitToWorkshop(req.user.workshop_id, 'jobCard:created', jobCard);
 
     res.status(201).json({ message: 'Job card created successfully.', jobCard });
   } catch (err) {
@@ -83,6 +86,7 @@ exports.transitionStatus = async (req, res) => {
     if (jobCard) {
       const fullCard = await JobCard.findById(jobCard.id);
       notifyStatusUpdate(fullCard, req.user.id).catch(err => console.error('Auto-notify error:', err));
+      emitToWorkshop(fullCard.workshop_id || req.user.workshop_id, 'jobCard:statusChanged', fullCard);
     }
 
     res.json({ message: `Job card transitioned to ${status}.`, jobCard });
@@ -124,6 +128,8 @@ exports.assign = async (req, res) => {
     if (!jobCard) {
       return res.status(404).json({ error: 'Job card not found.' });
     }
+
+    emitToWorkshop(req.user.workshop_id, 'jobCard:assigned', jobCard);
 
     res.json({ message: 'Job card assigned successfully.', jobCard });
   } catch (err) {

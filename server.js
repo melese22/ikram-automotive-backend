@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -18,7 +19,10 @@ const appointmentRoutes = require('./routes/appointmentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const workshopRoutes = require('./routes/workshopRoutes');
 
+const { initSocket } = require('./services/socketService');
+
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
@@ -108,9 +112,12 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found.' });
 });
 
-app.listen(PORT, () => {
+initSocket(server);
+
+server.listen(PORT, () => {
   console.log(`Ikram Automotive API running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+  console.log(`WebSocket server initialized`);
 });
 
-module.exports = app;
+module.exports = { app, server };
