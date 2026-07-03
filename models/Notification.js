@@ -4,7 +4,7 @@ class Notification {
   static async log({ jobCardId, recipientType, recipientAddress, subject, message, status, providerResponse, createdBy }) {
     const { rows } = await db.query(
       `INSERT INTO notification_log (job_card_id, recipient_type, recipient_address, subject, message, status, provider_response, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       VALUES (CAST($1 AS UUID), $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [jobCardId || null, recipientType, recipientAddress, subject || null, message, status || 'pending', providerResponse || null, createdBy]
     );
