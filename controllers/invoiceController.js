@@ -184,9 +184,9 @@ exports.initiatePayment = async (req, res) => {
     const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/api/invoices/payment-callback`;
     const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invoices/${invoice.id}?paid=pending`;
 
-    const payerEmail = invoice.customer_email
-      || (invoice.customer_phone ? `${invoice.customer_phone.replace(/[^0-9]/g, '')}@ikram.auto` : null)
-      || 'customer@ikram.auto';
+    const payerEmail = (invoice.customer_email && !invoice.customer_email.endsWith('@test.com'))
+      ? invoice.customer_email
+      : (invoice.customer_phone ? `${invoice.customer_phone.replace(/[^0-9]/g, '')}@ikram.auto` : 'customer@ikram.auto');
 
     const result = await initPayment({
       amount: invoice.total,
