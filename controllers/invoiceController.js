@@ -184,13 +184,11 @@ exports.initiatePayment = async (req, res) => {
     const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/api/invoices/payment-callback`;
     const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invoices/${invoice.id}?paid=pending`;
 
-    const payerEmail = 'test@ikramauto.com';
-
     const result = await initPayment({
       amount: invoice.total,
-      email: payerEmail,
-      firstName: invoice.customer_name || 'Customer',
-      lastName: ' ',
+      email: 'customer.test@gmail.com',
+      firstName: invoice.customer_name || 'Test',
+      lastName: 'Customer',
       txRef,
       callbackUrl,
       returnUrl,
