@@ -176,10 +176,6 @@ exports.initiatePayment = async (req, res) => {
       return res.status(400).json({ error: 'Issue the invoice before requesting payment.' });
     }
 
-    if (invoice.chapa_pay_url) {
-      return res.json({ checkoutUrl: invoice.chapa_pay_url });
-    }
-
     const txRef = `${invoice.invoice_number}-${Date.now()}`;
     const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/api/invoices/payment-callback`;
     const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invoices/${invoice.id}?paid=pending`;
