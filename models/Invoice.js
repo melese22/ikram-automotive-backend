@@ -13,13 +13,13 @@ class Invoice {
 
   static async findById(id) {
     const { rows } = await db.query(
-      `SELECT i.*, u.name AS customer_name, u.phone AS customer_phone,
-              v.plate_number, v.make, v.model
-       FROM invoices i
-       JOIN users u ON i.customer_id = u.id
-       JOIN job_cards jc ON i.job_card_id = jc.id
-       JOIN vehicles v ON jc.vehicle_id = v.id
-       WHERE i.id = $1`,
+      `SELECT i.*, u.name AS customer_name, u.phone AS customer_phone, u.email AS customer_email,
+               v.plate_number, v.make, v.model
+        FROM invoices i
+        JOIN users u ON i.customer_id = u.id
+        JOIN job_cards jc ON i.job_card_id = jc.id
+        JOIN vehicles v ON jc.vehicle_id = v.id
+        WHERE i.id = $1`,
       [id]
     );
     return rows[0];

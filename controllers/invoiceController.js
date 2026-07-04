@@ -181,7 +181,7 @@ exports.initiatePayment = async (req, res) => {
     }
 
     const txRef = `INV-${invoice.invoice_number}-${Date.now()}`;
-    const callbackUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/invoices/payment-callback`;
+    const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/api/invoices/payment-callback`;
     const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invoices/${invoice.id}?paid=pending`;
 
     const result = await initPayment({

@@ -14,7 +14,7 @@ async function initPayment({ amount, email, firstName, lastName, txRef, callback
       tx_ref: txRef,
       callback_url: callbackUrl,
       return_url: returnUrl,
-      customization: { title: 'Ikram Automotive Payment' },
+      customization: { title: 'Ikram Auto Pay' },
     });
 
     const req = https.request({
