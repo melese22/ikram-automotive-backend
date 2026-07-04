@@ -180,15 +180,19 @@ exports.initiatePayment = async (req, res) => {
       return res.json({ checkoutUrl: invoice.chapa_pay_url });
     }
 
-    const txRef = `INV-${invoice.invoice_number}-${Date.now()}`;
+    const txRef = `${invoice.invoice_number}-${Date.now()}`;
     const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/api/invoices/payment-callback`;
     const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invoices/${invoice.id}?paid=pending`;
 
+    const payerEmail = invoice.customer_email
+      || (invoice.customer_phone ? `${invoice.customer_phone.replace(/[^0-9]/g, '')}@ikram.auto` : null)
+      || 'customer@ikram.auto';
+
     const result = await initPayment({
       amount: invoice.total,
-      email: invoice.customer_email || invoice.customer_phone || 'customer@example.com',
+      email: payerEmail,
       firstName: invoice.customer_name || 'Customer',
-      lastName: '',
+      lastName: ' ',
       txRef,
       callbackUrl,
       returnUrl,
