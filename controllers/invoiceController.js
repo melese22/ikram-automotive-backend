@@ -184,9 +184,11 @@ exports.initiatePayment = async (req, res) => {
     const callbackUrl = `${process.env.BACKEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000'}/api/invoices/payment-callback`;
     const returnUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invoices/${invoice.id}?paid=pending`;
 
+    const customerEmail = invoice.customer_email || 'customer@ikram.com';
+
     const result = await initPayment({
       amount: invoice.total,
-      email: 'customer.test@gmail.com',
+      email: customerEmail,
       firstName: invoice.customer_name || 'Test',
       lastName: 'Customer',
       txRef,
@@ -219,7 +221,7 @@ exports.paymentCallback = async (req, res) => {
     const verification = await verifyPayment(tx_ref);
 
     if (verification.status === 'success' && verification.data?.status === 'success') {
-      const invoiceNumber = tx_ref.split('-').slice(1, 3).join('-');
+      const invoiceNumber = tx_ref.split('-').slice(0, 3).join('-');
       const invoice = await Invoice.findByNumber(invoiceNumber);
       if (invoice && invoice.status !== 'PAID') {
         await Invoice.updateStatus(invoice.id, 'PAID');
