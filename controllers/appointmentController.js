@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
+const { normalizePhone } = require('../utils/phoneUtils');
 const Vehicle = require('../models/Vehicle');
 const { emitToWorkshop } = require('../services/socketService');
 
@@ -194,7 +195,8 @@ exports.getPublicSlots = async (req, res) => {
 
 exports.publicBook = async (req, res) => {
   try {
-    const { name, phone, email, make, model, year, plateNumber, workshopId, title, scheduledDate, startTime, endTime, notes } = req.body;
+    const { name, phone: rawPhone, email, make, model, year, plateNumber, workshopId, title, scheduledDate, startTime, endTime, notes } = req.body;
+    const phone = normalizePhone(rawPhone);
 
     if (!name || !phone || !make || !model || !workshopId || !title || !scheduledDate || !startTime || !endTime) {
       return res.status(400).json({ error: 'name, phone, make, model, workshopId, title, scheduledDate, startTime, endTime are required.' });

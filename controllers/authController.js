@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { sendEmail } = require('../services/notificationService');
+const { normalizePhone } = require('../utils/phoneUtils');
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -14,7 +15,8 @@ const generateToken = (user) => {
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, password, role, workshopId } = req.body;
+    const { name, email, phone: rawPhone, password, role, workshopId } = req.body;
+    const phone = normalizePhone(rawPhone);
 
     if (!name || !phone || !password) {
       return res.status(400).json({ error: 'Name, phone, and password are required.' });
@@ -59,7 +61,8 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { phone, email, password } = req.body;
+    const { phone: rawPhone, email, password } = req.body;
+    const phone = rawPhone ? normalizePhone(rawPhone) : null;
 
     if ((!phone && !email) || !password) {
       return res.status(400).json({ error: 'Phone/email and password are required.' });
