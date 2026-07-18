@@ -1,6 +1,15 @@
-const { Pool } = require('pg');
 require('dotenv').config();
+const { Pool } = require('pg');
+const { neon } = require('@neondatabase/serverless');
+const logger = require('./logger');
 
+// Neon serverless driver — handles parameterized queries safely via HTTP,
+// bypassing pgBouncer's extended query protocol limitation.
+// Usage: db.query('SELECT * FROM users WHERE id = $1', [userId])
+const sql = neon(process.env.DATABASE_URL);
+
+// pg Pool is kept for migration runner and transaction support (BEGIN/COMMIT/ROLLBACK).
+// Do NOT use pool.query() for application code — use query() instead.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' || process.env.DATABASE_URL?.includes('neon.tech')
@@ -12,21 +21,19 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('Unexpected PostgreSQL pool error:', err);
+  logger.fatal({ err }, 'Unexpected PostgreSQL pool error');
   process.exit(-1);
 });
 
-function escape(val) {
-  if (val === null || val === undefined) return 'NULL';
-  if (typeof val === 'number') return val.toString();
-  const s = String(val).replace(/'/g, "''").replace(/\\/g, '\\\\');
-  return `'${s}'`;
-}
-
-function query(text, params) {
-  if (!params || params.length === 0) return pool.query(text);
-  const sql = text.replace(/\$(\d+)/g, (_, idx) => escape(params[parseInt(idx) - 1]));
-  return pool.query(sql);
+/**
+ * Secure parameterized query using Neon serverless driver.
+ * Values are sent as HTTP request body parameters — never interpolated into SQL strings.
+ * Compatible with the existing pg-style $1, $2, ... placeholder syntax.
+ * Returns { rows } shape matching pg's QueryResult for backward compatibility.
+ */
+async function query(text, params) {
+  const rows = await sql.query(text, params || []);
+  return { rows };
 }
 
 module.exports = {

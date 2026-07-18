@@ -6,11 +6,11 @@ const { authorize } = require('../middlewares/roleMiddleware');
 
 router.use(authenticate);
 
-router.get('/dashboard', authorize('SuperAdmin', 'WorkshopManager', 'Mechanic'), reportController.dashboard);
+router.get('/dashboard', authorize('SuperAdmin', 'WorkshopManager'), reportController.dashboard);
 router.get('/revenue', authorize('SuperAdmin', 'WorkshopManager'), reportController.revenueReport);
 router.get('/mechanics', authorize('SuperAdmin', 'WorkshopManager'), reportController.mechanicProductivity);
-router.get('/services', authorize('SuperAdmin', 'WorkshopManager', 'Mechanic'), reportController.commonServices);
+router.get('/services', authorize('SuperAdmin', 'WorkshopManager'), reportController.commonServices);
 router.get('/parts', authorize('SuperAdmin', 'WorkshopManager'), reportController.partsUsage);
-router.get('/appointments', authorize('SuperAdmin', 'WorkshopManager', 'Mechanic'), reportController.appointmentStats);
+router.get('/appointments', authorize('SuperAdmin', 'WorkshopManager'), reportController.appointmentStats);
 
 module.exports = router;

@@ -1,11 +1,22 @@
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const logger = require('../config/logger');
+
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://https-github-com-melese22-ikram-aut.vercel.app',
+  'https://https-github-com-melese22-ikram-automotive-frontend.vercel.app',
+];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL);
+}
 
 let io = null;
 
 function initSocket(server) {
   io = new Server(server, {
     cors: {
-      origin: '*',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -18,31 +29,46 @@ function initSocket(server) {
     cookie: false,
   });
 
-  io.engine.on('initial_headers', (headers) => {
-    headers['Access-Control-Allow-Origin'] = '*';
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+    if (!token) {
+      return next(new Error('Authentication error: No token provided'));
+    }
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      socket.data.user = decoded;
+      next();
+    } catch (err) {
+      return next(new Error('Authentication error: Invalid or expired token'));
+    }
+  });
+
+  io.engine.on('initial_headers', (headers, req) => {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.some(o => origin.startsWith(o))) {
+      headers['Access-Control-Allow-Origin'] = origin;
+    }
   });
 
   io.on('connection', (socket) => {
-    const { workshopId, userId, role } = socket.handshake.query;
+    const user = socket.data.user;
 
-    console.log(`[Socket] Connected: user=${userId}, workshop=${workshopId}, role=${role}, transport=${socket.conn.transport.name}`);
+    logger.info({ userId: user.id, workshopId: user.workshop_id, role: user.role, transport: socket.conn.transport.name }, 'Socket connected');
 
-    if (workshopId) {
-      socket.join(`workshop:${workshopId}`);
+    if (user.workshop_id) {
+      socket.join(`workshop:${user.workshop_id}`);
     }
-    if (userId) {
-      socket.join(`user:${userId}`);
-    }
-    if (role === 'SuperAdmin') {
+    socket.join(`user:${user.id}`);
+    if (user.role === 'SuperAdmin') {
       socket.join('superadmin');
     }
 
     socket.on('disconnect', (reason) => {
-      console.log(`[Socket] Disconnected: user=${userId}, reason=${reason}`);
+      logger.info({ userId: user.id, reason }, 'Socket disconnected');
     });
 
     socket.on('error', (err) => {
-      console.error(`[Socket] Error: user=${userId}`, err.message);
+      logger.error({ err, userId: user.id }, 'Socket error');
     });
   });
 

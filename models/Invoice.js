@@ -1,12 +1,12 @@
 const db = require('../config/database');
 
 class Invoice {
-  static async create({ invoiceNumber, jobCardId, workshopId, customerId, subtotal, taxRate, taxAmount, total, notes, createdBy }) {
+  static async create({ invoiceNumber, jobCardId, workshopId, customerId, subtotal, taxRate, taxAmount, total, notes, createdBy, depositPaid }) {
     const { rows } = await db.query(
-      `INSERT INTO invoices (invoice_number, job_card_id, workshop_id, customer_id, subtotal, tax_rate, tax_amount, total, notes, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO invoices (invoice_number, job_card_id, workshop_id, customer_id, subtotal, tax_rate, tax_amount, total, notes, created_by, deposit_paid, balance_due)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
-      [invoiceNumber, jobCardId, workshopId, customerId, subtotal, taxRate, taxAmount, total, notes || null, createdBy]
+      [invoiceNumber, jobCardId, workshopId, customerId, subtotal, taxRate, taxAmount, total, notes || null, createdBy, depositPaid || 0, (total || 0) - (depositPaid || 0)]
     );
     return rows[0];
   }
@@ -94,12 +94,17 @@ class Invoice {
 
   static async nextInvoiceNumber(workshopId) {
     const year = new Date().getFullYear();
-    const { rows } = await db.query(
-      `SELECT COUNT(*)::int AS count FROM invoices WHERE workshop_id = $1 AND EXTRACT(YEAR FROM created_at) = $2`,
-      [workshopId, year]
-    );
-    const seq = (rows[0].count + 1).toString().padStart(4, '0');
-    return `INV-${year}-${seq}`;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const { rows } = await db.query(
+        `SELECT COUNT(*)::int AS count FROM invoices WHERE workshop_id = $1 AND EXTRACT(YEAR FROM created_at) = $2`,
+        [workshopId, year]
+      );
+      const seq = (rows[0].count + 1 + attempt).toString().padStart(4, '0');
+      const candidate = `INV-${year}-${seq}`;
+      const existing = await this.findByNumber(candidate);
+      if (!existing) return candidate;
+    }
+    throw new Error('Could not generate unique invoice number after 10 attempts.');
   }
 }
 

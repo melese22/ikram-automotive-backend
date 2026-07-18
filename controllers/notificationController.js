@@ -2,6 +2,7 @@ const Notification = require('../models/Notification');
 const JobCard = require('../models/JobCard');
 const TrackingToken = require('../models/TrackingToken');
 const { sendNotification } = require('../services/notificationService');
+const logger = require('../config/logger');
 
 exports.send = async (req, res) => {
   try {
@@ -31,7 +32,7 @@ exports.send = async (req, res) => {
 
     res.json({ message: 'Notification sent.', notification: updated });
   } catch (err) {
-    console.error('Send notification error:', err);
+    logger.error({ err }, 'Send notification error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -85,7 +86,7 @@ exports.sendStatusUpdate = async (req, res) => {
 
     res.json({ message: 'Status update sent.', notification: updated });
   } catch (err) {
-    console.error('Send status update error:', err);
+    logger.error({ err }, 'Send status update error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -95,7 +96,7 @@ exports.getByJobCard = async (req, res) => {
     const notifications = await Notification.findByJobCard(req.params.jobCardId);
     res.json({ notifications });
   } catch (err) {
-    console.error('Get notifications error:', err);
+    logger.error({ err }, 'Get notifications error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -108,7 +109,7 @@ exports.getAll = async (req, res) => {
     const { rows, total } = await Notification.findAll(req.user.workshop_id, { limit, offset });
     res.json({ notifications: rows, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('Get all notifications error:', err);
+    logger.error({ err }, 'Get all notifications error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

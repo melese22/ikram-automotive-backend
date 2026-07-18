@@ -2,6 +2,7 @@ const JobCard = require('../models/JobCard');
 const Notification = require('../models/Notification');
 const { sendNotification } = require('../services/notificationService');
 const { emitToWorkshop } = require('../services/socketService');
+const logger = require('../config/logger');
 
 exports.create = async (req, res) => {
   try {
@@ -25,7 +26,7 @@ exports.create = async (req, res) => {
     if (err.code === '23503') {
       return res.status(400).json({ error: 'Referenced vehicle or user does not exist.' });
     }
-    console.error('Create job card error:', err);
+    logger.error({ err }, 'Create job card error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -38,7 +39,7 @@ exports.getAll = async (req, res) => {
     const { rows, total } = await JobCard.findAllByWorkshop(req.user.workshop_id, { limit, offset });
     res.json({ jobCards: rows, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('Get job cards error:', err);
+    logger.error({ err }, 'Get job cards error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -48,7 +49,7 @@ exports.getActive = async (req, res) => {
     const jobCards = await JobCard.findActiveByWorkshop(req.user.workshop_id);
     res.json({ jobCards });
   } catch (err) {
-    console.error('Get active job cards error:', err);
+    logger.error({ err }, 'Get active job cards error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -59,9 +60,12 @@ exports.getById = async (req, res) => {
     if (!jobCard) {
       return res.status(404).json({ error: 'Job card not found.' });
     }
+    if (req.user.role === 'Customer' && jobCard.customer_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
     res.json({ jobCard });
   } catch (err) {
-    console.error('Get job card error:', err);
+    logger.error({ err }, 'Get job card error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -85,7 +89,7 @@ exports.transitionStatus = async (req, res) => {
 
     if (jobCard) {
       const fullCard = await JobCard.findById(jobCard.id);
-      notifyStatusUpdate(fullCard, req.user.id).catch(err => console.error('Auto-notify error:', err));
+      notifyStatusUpdate(fullCard, req.user.id).catch(err => logger.error({ err }, 'Auto-notify error'));
       emitToWorkshop(fullCard.workshop_id || req.user.workshop_id, 'jobCard:statusChanged', fullCard);
     }
 
@@ -94,7 +98,7 @@ exports.transitionStatus = async (req, res) => {
     if (err.message.includes('Invalid transition') || err.message.includes('not found')) {
       return res.status(400).json({ error: err.message });
     }
-    console.error('Transition status error:', err);
+    logger.error({ err }, 'Transition status error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -133,7 +137,7 @@ exports.assign = async (req, res) => {
 
     res.json({ message: 'Job card assigned successfully.', jobCard });
   } catch (err) {
-    console.error('Assign job card error:', err);
+    logger.error({ err }, 'Assign job card error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -159,7 +163,7 @@ exports.update = async (req, res) => {
 
     res.json({ message: 'Job card updated successfully.', jobCard });
   } catch (err) {
-    console.error('Update job card error:', err);
+    logger.error({ err }, 'Update job card error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -169,7 +173,7 @@ exports.getMyJobCards = async (req, res) => {
     const jobCards = await JobCard.findByCustomer(req.user.id);
     res.json({ jobCards });
   } catch (err) {
-    console.error('Get my job cards error:', err);
+    logger.error({ err }, 'Get my job cards error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

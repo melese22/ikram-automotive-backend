@@ -1,11 +1,12 @@
 const Workshop = require('../models/Workshop');
+const logger = require('../config/logger');
 
 exports.getAll = async (req, res) => {
   try {
     const workshops = await Workshop.findAll();
     res.json({ workshops });
   } catch (err) {
-    console.error('Get workshops error:', err);
+    logger.error({ err }, 'Get workshops error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -17,7 +18,7 @@ exports.getById = async (req, res) => {
     const stats = await Workshop.getStats(req.params.id);
     res.json({ workshop, stats });
   } catch (err) {
-    console.error('Get workshop error:', err);
+    logger.error({ err }, 'Get workshop error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -30,7 +31,7 @@ exports.create = async (req, res) => {
     const workshop = await Workshop.create({ name, address, phone, email });
     res.status(201).json({ message: 'Workshop created.', workshop });
   } catch (err) {
-    console.error('Create workshop error:', err);
+    logger.error({ err }, 'Create workshop error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -50,7 +51,7 @@ exports.update = async (req, res) => {
     if (!workshop) return res.status(404).json({ error: 'Workshop not found.' });
     res.json({ message: 'Workshop updated.', workshop });
   } catch (err) {
-    console.error('Update workshop error:', err);
+    logger.error({ err }, 'Update workshop error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -74,7 +75,7 @@ exports.overview = async (req, res) => {
 
     res.json({ workshops: withStats, totals });
   } catch (err) {
-    console.error('Workshop overview error:', err);
+    logger.error({ err }, 'Workshop overview error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

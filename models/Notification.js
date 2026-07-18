@@ -48,7 +48,7 @@ class Notification {
 
   static async updateStatus(id, status, providerResponse) {
     const { rows } = await db.query(
-      `UPDATE notification_log SET status = $1, provider_response = $2,
+      `UPDATE notification_log SET status = $1::varchar, provider_response = $2,
         sent_at = CASE WHEN $1 = 'sent' THEN NOW() ELSE sent_at END
        WHERE id = $3 RETURNING *`,
       [status, providerResponse || null, id]

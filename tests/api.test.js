@@ -1,15 +1,33 @@
 require('dotenv').config();
 const request = require('supertest');
-const app = require('../server');
+const { app } = require('../server');
 const db = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+jest.setTimeout(30000);
+
 let adminToken, customerToken, workshopId, customerId, vehicleId, jobCardId;
 
-beforeAll(async () => {
+async function cleanupTest() {
+  await db.query('DELETE FROM milestone_tasks WHERE milestone_id IN (SELECT id FROM milestones WHERE job_card_id IN (SELECT id FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1)))', ['Test Workshop']);
+  await db.query('DELETE FROM milestones WHERE job_card_id IN (SELECT id FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1))', ['Test Workshop']);
+  await db.query('DELETE FROM parts_used WHERE job_card_id IN (SELECT id FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1))', ['Test Workshop']);
+  await db.query('DELETE FROM media_assets WHERE job_card_id IN (SELECT id FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1))', ['Test Workshop']);
+  await db.query('DELETE FROM tracking_tokens WHERE job_card_id IN (SELECT id FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1))', ['Test Workshop']);
+  await db.query('DELETE FROM notification_log WHERE job_card_id IN (SELECT id FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1))', ['Test Workshop']);
+  await db.query('DELETE FROM invoice_line_items WHERE invoice_id IN (SELECT id FROM invoices WHERE job_card_id IN (SELECT id FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1)))', ['Test Workshop']);
+  await db.query('DELETE FROM invoices WHERE job_card_id IN (SELECT id FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1))', ['Test Workshop']);
+  await db.query('DELETE FROM job_cards WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1)', ['Test Workshop']);
+  await db.query('DELETE FROM appointments WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1)', ['Test Workshop']);
+  await db.query('DELETE FROM vehicles WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1)', ['Test Workshop']);
+  await db.query('DELETE FROM parts_inventory WHERE workshop_id IN (SELECT id FROM workshops WHERE name = $1)', ['Test Workshop']);
   await db.query('DELETE FROM users WHERE phone IN ($1,$2,$3)', ['+251911111112', '+251911111113', '+251911111114']);
   await db.query('DELETE FROM workshops WHERE name = $1', ['Test Workshop']);
+}
+
+beforeAll(async () => {
+  await cleanupTest();
 
   const pw = await bcrypt.hash('password123', 4);
 
@@ -45,10 +63,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await db.query('DELETE FROM job_cards WHERE id = $1', [jobCardId]);
-  await db.query('DELETE FROM vehicles WHERE id = $1', [vehicleId]);
-  await db.query('DELETE FROM users WHERE phone LIKE $1', ['+251911111%']);
-  await db.query('DELETE FROM workshops WHERE id = $1', [workshopId]);
+  await cleanupTest();
   await db.pool.end();
 });
 

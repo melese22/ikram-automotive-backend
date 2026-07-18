@@ -1,5 +1,6 @@
 const Part = require('../models/Part');
 const PartUsed = require('../models/PartUsed');
+const logger = require('../config/logger');
 
 exports.create = async (req, res) => {
   try {
@@ -16,7 +17,7 @@ exports.create = async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'A part with this SKU already exists.' });
     }
-    console.error('Create part error:', err);
+    logger.error({ err }, 'Create part error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -29,7 +30,7 @@ exports.getAll = async (req, res) => {
     const { rows, total } = await Part.findAllByWorkshop(req.user.workshop_id, { limit, offset });
     res.json({ parts: rows, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('Get parts error:', err);
+    logger.error({ err }, 'Get parts error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -40,7 +41,7 @@ exports.getById = async (req, res) => {
     if (!part) return res.status(404).json({ error: 'Part not found.' });
     res.json({ part });
   } catch (err) {
-    console.error('Get part error:', err);
+    logger.error({ err }, 'Get part error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -52,7 +53,7 @@ exports.search = async (req, res) => {
     const parts = await Part.search(req.user.workshop_id, q);
     res.json({ parts });
   } catch (err) {
-    console.error('Search parts error:', err);
+    logger.error({ err }, 'Search parts error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -62,7 +63,7 @@ exports.lowStock = async (req, res) => {
     const parts = await Part.getLowStock(req.user.workshop_id);
     res.json({ parts });
   } catch (err) {
-    console.error('Low stock error:', err);
+    logger.error({ err }, 'Low stock error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -72,7 +73,7 @@ exports.categories = async (req, res) => {
     const categories = await Part.getCategories(req.user.workshop_id);
     res.json({ categories });
   } catch (err) {
-    console.error('Categories error:', err);
+    logger.error({ err }, 'Categories error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -91,7 +92,7 @@ exports.update = async (req, res) => {
     if (!part) return res.status(404).json({ error: 'Part not found.' });
     res.json({ message: 'Part updated.', part });
   } catch (err) {
-    console.error('Update part error:', err);
+    logger.error({ err }, 'Update part error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -106,7 +107,7 @@ exports.adjustStock = async (req, res) => {
     if (!part) return res.status(400).json({ error: 'Insufficient stock or part not found.' });
     res.json({ message: `Stock adjusted by ${delta}. New quantity: ${part.quantity}`, part });
   } catch (err) {
-    console.error('Adjust stock error:', err);
+    logger.error({ err }, 'Adjust stock error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -117,7 +118,7 @@ exports.deactivate = async (req, res) => {
     if (!part) return res.status(404).json({ error: 'Part not found.' });
     res.json({ message: 'Part deactivated.', part });
   } catch (err) {
-    console.error('Deactivate part error:', err);
+    logger.error({ err }, 'Deactivate part error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -146,7 +147,7 @@ exports.usePart = async (req, res) => {
 
     res.status(201).json({ message: `Used ${quantity}x ${part.name} on job card.`, partUsed: used });
   } catch (err) {
-    console.error('Use part error:', err);
+    logger.error({ err }, 'Use part error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -157,7 +158,7 @@ exports.getPartsUsed = async (req, res) => {
     const total = await PartUsed.totalForJobCard(req.params.jobCardId);
     res.json({ partsUsed, total });
   } catch (err) {
-    console.error('Get parts used error:', err);
+    logger.error({ err }, 'Get parts used error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -172,7 +173,7 @@ exports.removeUsedPart = async (req, res) => {
 
     res.json({ message: `Restocked ${used.quantity}x ${used.part_name}.` });
   } catch (err) {
-    console.error('Remove used part error:', err);
+    logger.error({ err }, 'Remove used part error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

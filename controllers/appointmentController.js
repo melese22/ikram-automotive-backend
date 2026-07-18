@@ -4,6 +4,8 @@ const User = require('../models/User');
 const { normalizePhone } = require('../utils/phoneUtils');
 const Vehicle = require('../models/Vehicle');
 const { emitToWorkshop } = require('../services/socketService');
+const { getWorkshopTimezone } = require('../services/timezoneService');
+const logger = require('../config/logger');
 
 function generateTimeSlots(existing, slotDurationMinutes = 30) {
   const slots = [];
@@ -55,7 +57,7 @@ exports.create = async (req, res) => {
 
     res.status(201).json({ message: 'Appointment created.', appointment });
   } catch (err) {
-    console.error('Create appointment error:', err);
+    logger.error({ err }, 'Create appointment error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -81,7 +83,7 @@ exports.customerBook = async (req, res) => {
 
     res.status(201).json({ message: 'Appointment booked.', appointment });
   } catch (err) {
-    console.error('Customer book appointment error:', err);
+    logger.error({ err }, 'Customer book appointment error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -95,7 +97,7 @@ exports.getAll = async (req, res) => {
     const { rows, total } = await Appointment.findByWorkshop(req.user.workshop_id, date || null, { limit, offset });
     res.json({ appointments: rows, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('Get appointments error:', err);
+    logger.error({ err }, 'Get appointments error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -106,7 +108,7 @@ exports.getById = async (req, res) => {
     if (!appointment) return res.status(404).json({ error: 'Appointment not found.' });
     res.json({ appointment });
   } catch (err) {
-    console.error('Get appointment error:', err);
+    logger.error({ err }, 'Get appointment error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -116,7 +118,7 @@ exports.getMyAppointments = async (req, res) => {
     const appointments = await Appointment.findByCustomer(req.user.id);
     res.json({ appointments });
   } catch (err) {
-    console.error('Get my appointments error:', err);
+    logger.error({ err }, 'Get my appointments error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -128,9 +130,10 @@ exports.getAvailableSlots = async (req, res) => {
 
     const existing = await Appointment.getSlots(req.user.workshop_id, date);
     const slots = generateTimeSlots(existing);
-    res.json({ date, slots });
+    const timezone = await getWorkshopTimezone(req.user.workshop_id);
+    res.json({ date, timezone, slots });
   } catch (err) {
-    console.error('Get available slots error:', err);
+    logger.error({ err }, 'Get available slots error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -150,7 +153,7 @@ exports.updateStatus = async (req, res) => {
 
     res.json({ message: `Appointment ${status}.`, appointment });
   } catch (err) {
-    console.error('Update appointment status error:', err);
+    logger.error({ err }, 'Update appointment status error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -161,7 +164,7 @@ exports.update = async (req, res) => {
     if (!appointment) return res.status(404).json({ error: 'Appointment not found.' });
     res.json({ message: 'Appointment updated.', appointment });
   } catch (err) {
-    console.error('Update appointment error:', err);
+    logger.error({ err }, 'Update appointment error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -172,7 +175,7 @@ exports.delete = async (req, res) => {
     if (!appointment) return res.status(404).json({ error: 'Appointment not found.' });
     res.json({ message: 'Appointment deleted.' });
   } catch (err) {
-    console.error('Delete appointment error:', err);
+    logger.error({ err }, 'Delete appointment error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -186,25 +189,30 @@ exports.getPublicSlots = async (req, res) => {
 
     const existing = await Appointment.getSlots(workshopId, date);
     const slots = generateTimeSlots(existing);
-    res.json({ date, slots });
+    const timezone = await getWorkshopTimezone(workshopId);
+    res.json({ date, timezone, slots });
   } catch (err) {
-    console.error('Get public slots error:', err);
+    logger.error({ err }, 'Get public slots error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
 
 exports.publicBook = async (req, res) => {
   try {
-    const { name, phone: rawPhone, email, make, model, year, plateNumber, workshopId, title, scheduledDate, startTime, endTime, notes } = req.body;
+    const { name, phone: rawPhone, email, password, make, model, year, plateNumber, workshopId, title, scheduledDate, startTime, endTime, notes } = req.body;
     const phone = normalizePhone(rawPhone);
 
-    if (!name || !phone || !make || !model || !workshopId || !title || !scheduledDate || !startTime || !endTime) {
-      return res.status(400).json({ error: 'name, phone, make, model, workshopId, title, scheduledDate, startTime, endTime are required.' });
+    if (!name || !phone || !password || !make || !model || !workshopId || !title || !scheduledDate || !startTime || !endTime) {
+      return res.status(400).json({ error: 'name, phone, password, make, model, workshopId, title, scheduledDate, startTime, endTime are required.' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     }
 
     let user = await User.findByPhone(phone);
     if (!user) {
-      const passwordHash = await bcrypt.hash(phone.slice(-6), 12);
+      const passwordHash = await bcrypt.hash(password, 12);
       user = await User.create({
         name, email, phone, passwordHash, role: 'Customer', workshopId,
       });
@@ -224,7 +232,7 @@ exports.publicBook = async (req, res) => {
 
     res.status(201).json({ message: 'Appointment booked! We will confirm shortly.', appointment });
   } catch (err) {
-    console.error('Public book error:', err);
+    logger.error({ err }, 'Public book error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

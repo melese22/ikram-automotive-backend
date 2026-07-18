@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { sendEmail } = require('../services/notificationService');
 const { normalizePhone } = require('../utils/phoneUtils');
+const logger = require('../config/logger');
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -54,7 +55,7 @@ exports.register = async (req, res) => {
       token,
     });
   } catch (err) {
-    console.error('Register error:', err);
+    logger.error({ err }, 'Register error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -103,7 +104,7 @@ exports.login = async (req, res) => {
       token,
     });
   } catch (err) {
-    console.error('Login error:', err);
+    logger.error({ err }, 'Login error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -122,7 +123,7 @@ exports.getUsers = async (req, res) => {
     const users = await User.findByWorkshop(req.user.workshop_id, role || null);
     res.json({ users });
   } catch (err) {
-    console.error('Get users error:', err);
+    logger.error({ err }, 'Get users error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -141,9 +142,10 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-    await User.setResetToken(user.id, resetToken, expiresAt);
+    await User.setResetToken(user.id, hashedToken, expiresAt);
 
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
@@ -154,14 +156,14 @@ exports.forgotPassword = async (req, res) => {
       html: `<p>Reset your password here:</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>This link expires in 1 hour.</p>`,
     });
 
-    console.log(`Password reset link for ${email}: ${resetUrl}`);
+    logger.info({ email, resetUrl }, 'Password reset link generated');
     if (!emailResult.success) {
-      console.log(`Email delivery failed: ${emailResult.error} — reset token still saved`);
+      logger.warn({ err: emailResult.error }, 'Email delivery failed, reset token still saved');
     }
 
     res.json({ message: 'If that email exists, a reset link has been sent.' });
   } catch (err) {
-    console.error('Forgot password error:', err);
+    logger.error({ err }, 'Forgot password error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -178,7 +180,8 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     }
 
-    const user = await User.findByResetToken(token);
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await User.findByResetToken(hashedToken);
     if (!user) {
       return res.status(400).json({ error: 'Invalid or expired reset token.' });
     }
@@ -190,7 +193,7 @@ exports.resetPassword = async (req, res) => {
 
     res.json({ message: 'Password reset successfully. You can now log in.' });
   } catch (err) {
-    console.error('Reset password error:', err);
+    logger.error({ err }, 'Reset password error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

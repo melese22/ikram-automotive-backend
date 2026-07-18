@@ -1,4 +1,5 @@
 const { Milestone, MilestoneTask } = require('../models/Milestone');
+const logger = require('../config/logger');
 
 exports.createMilestone = async (req, res) => {
   try {
@@ -9,7 +10,7 @@ exports.createMilestone = async (req, res) => {
     const milestone = await Milestone.create({ jobCardId, title, description, sortOrder, assignedTo });
     res.status(201).json({ message: 'Milestone created.', milestone });
   } catch (err) {
-    console.error('Create milestone error:', err);
+    logger.error({ err }, 'Create milestone error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -25,7 +26,7 @@ exports.getMilestones = async (req, res) => {
     );
     res.json({ milestones: enriched });
   } catch (err) {
-    console.error('Get milestones error:', err);
+    logger.error({ err }, 'Get milestones error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -48,7 +49,7 @@ exports.updateMilestone = async (req, res) => {
     if (!milestone) return res.status(404).json({ error: 'Milestone not found.' });
     res.json({ message: 'Milestone updated.', milestone });
   } catch (err) {
-    console.error('Update milestone error:', err);
+    logger.error({ err }, 'Update milestone error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -63,7 +64,7 @@ exports.transitionMilestone = async (req, res) => {
     if (!milestone) return res.status(404).json({ error: 'Milestone not found.' });
     res.json({ message: `Milestone ${status}.`, milestone });
   } catch (err) {
-    console.error('Transition milestone error:', err);
+    logger.error({ err }, 'Transition milestone error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -74,7 +75,7 @@ exports.deleteMilestone = async (req, res) => {
     if (!milestone) return res.status(404).json({ error: 'Milestone not found.' });
     res.json({ message: 'Milestone deleted.' });
   } catch (err) {
-    console.error('Delete milestone error:', err);
+    logger.error({ err }, 'Delete milestone error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -92,7 +93,7 @@ exports.createTask = async (req, res) => {
     });
     res.status(201).json({ message: 'Task created.', task });
   } catch (err) {
-    console.error('Create task error:', err);
+    logger.error({ err }, 'Create task error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -102,7 +103,7 @@ exports.getTasks = async (req, res) => {
     const tasks = await MilestoneTask.findByMilestone(req.params.milestoneId);
     res.json({ tasks });
   } catch (err) {
-    console.error('Get tasks error:', err);
+    logger.error({ err }, 'Get tasks error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -125,7 +126,7 @@ exports.updateTask = async (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found.' });
     res.json({ message: 'Task updated.', task });
   } catch (err) {
-    console.error('Update task error:', err);
+    logger.error({ err }, 'Update task error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -149,7 +150,7 @@ exports.transitionTask = async (req, res) => {
 
     res.json({ message: `Task ${status}.`, task });
   } catch (err) {
-    console.error('Transition task error:', err);
+    logger.error({ err }, 'Transition task error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -160,7 +161,7 @@ exports.deleteTask = async (req, res) => {
     if (!task) return res.status(404).json({ error: 'Task not found.' });
     res.json({ message: 'Task deleted.' });
   } catch (err) {
-    console.error('Delete task error:', err);
+    logger.error({ err }, 'Delete task error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

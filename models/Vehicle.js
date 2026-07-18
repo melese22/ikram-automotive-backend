@@ -1,12 +1,12 @@
 const db = require('../config/database');
 
 class Vehicle {
-  static async create({ plateNumber, chassisNumber, make, model, year, vin, mileage, customerId, workshopId }) {
+  static async create({ plateNumber, chassisNumber, make, model, year, vin, mileage, customerId, workshopId, vehicleType, batteryCapacity, batterySoc, batteryHealth, motorType, firmwareVersion }) {
     const { rows } = await db.query(
-      `INSERT INTO vehicles (plate_number, chassis_number, make, model, year, vin, mileage, customer_id, workshop_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO vehicles (plate_number, chassis_number, make, model, year, vin, mileage, customer_id, workshop_id, vehicle_type, battery_capacity, battery_soc, battery_health, motor_type, firmware_version)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
-      [plateNumber || null, chassisNumber || null, make, model, year || null, vin || null, mileage || null, customerId, workshopId]
+      [plateNumber || null, chassisNumber || null, make, model, year || null, vin || null, mileage || null, customerId, workshopId, vehicleType || 'ICE', batteryCapacity || null, batterySoc || null, batteryHealth || null, motorType || null, firmwareVersion || null]
     );
     return rows[0];
   }

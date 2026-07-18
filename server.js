@@ -1,10 +1,13 @@
 require('dotenv').config();
+const { validateEnv } = require('./config/env');
+validateEnv();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
+const logger = require('./config/logger');
 
 const authRoutes = require('./routes/authRoutes');
 const vehicleRoutes = require('./routes/vehicleRoutes');
@@ -18,6 +21,13 @@ const invoiceRoutes = require('./routes/invoiceRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const workshopRoutes = require('./routes/workshopRoutes');
+const workshopSettingsRoutes = require('./routes/workshopSettingsRoutes');
+const userManagementRoutes = require('./routes/userManagementRoutes');
+const companyRoutes = require('./routes/companyRoutes');
+const transferRoutes = require('./routes/transferRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const loyaltyRoutes = require('./routes/loyaltyRoutes');
 
 const { initSocket } = require('./services/socketService');
 
@@ -37,19 +47,37 @@ if (process.env.FRONTEND_URL) {
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true);
-    cb(null, true);
+    cb(new Error('Not allowed by CORS'));
   },
   credentials: true,
 }));
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' },
 });
 app.use('/api/', limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again later.' },
+});
+app.use('/api/auth/login', authLimiter);
+
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many registration attempts. Please try again later.' },
+});
+app.use('/api/auth/register', registerLimiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -93,6 +121,13 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/workshops', workshopRoutes);
+app.use('/api/workshop-settings', workshopSettingsRoutes);
+app.use('/api/user-management', userManagementRoutes);
+app.use('/api/company', companyRoutes);
+app.use('/api/transfers', transferRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
 
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
@@ -104,7 +139,7 @@ app.use((err, req, res, next) => {
   if (err.message?.includes('Invalid file type')) {
     return res.status(400).json({ error: err.message });
   }
-  console.error('Unhandled error:', err);
+  logger.error({ err }, 'Unhandled error');
   res.status(500).json({ error: 'Internal server error.' });
 });
 
@@ -115,9 +150,9 @@ app.use((req, res) => {
 initSocket(server);
 
 server.listen(PORT, () => {
-  console.log(`Ikram Automotive API running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/api/health`);
-  console.log(`WebSocket server initialized`);
+  logger.info({ port: PORT }, 'Ikram Automotive API running');
+  logger.info({ url: `http://localhost:${PORT}/api/health` }, 'Health check');
+  logger.info('WebSocket server initialized');
 });
 
 module.exports = { app, server };

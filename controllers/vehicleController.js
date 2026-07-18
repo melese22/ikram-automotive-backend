@@ -1,8 +1,9 @@
 const Vehicle = require('../models/Vehicle');
+const logger = require('../config/logger');
 
 exports.create = async (req, res) => {
   try {
-    const { plateNumber, chassisNumber, make, model, year, vin, mileage, customerId } = req.body;
+    const { plateNumber, chassisNumber, make, model, year, vin, mileage, customerId, vehicleType, batteryCapacity, batterySoc, batteryHealth, motorType, firmwareVersion } = req.body;
 
     if (!make || !model || !customerId) {
       return res.status(400).json({ error: 'Make, model, and customerId are required.' });
@@ -18,6 +19,12 @@ exports.create = async (req, res) => {
       mileage,
       customerId,
       workshopId: req.user.workshop_id,
+      vehicleType,
+      batteryCapacity,
+      batterySoc,
+      batteryHealth,
+      motorType,
+      firmwareVersion,
     });
 
     res.status(201).json({ message: 'Vehicle registered successfully.', vehicle });
@@ -25,7 +32,7 @@ exports.create = async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Vehicle with this VIN already exists.' });
     }
-    console.error('Create vehicle error:', err);
+    logger.error({ err }, 'Create vehicle error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -38,7 +45,7 @@ exports.getAll = async (req, res) => {
     const { rows, total } = await Vehicle.findAllByWorkshop(req.user.workshop_id, { limit, offset });
     res.json({ vehicles: rows, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('Get vehicles error:', err);
+    logger.error({ err }, 'Get vehicles error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -49,9 +56,12 @@ exports.getById = async (req, res) => {
     if (!vehicle) {
       return res.status(404).json({ error: 'Vehicle not found.' });
     }
+    if (req.user.role === 'Customer' && vehicle.customer_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
     res.json({ vehicle });
   } catch (err) {
-    console.error('Get vehicle error:', err);
+    logger.error({ err }, 'Get vehicle error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -65,14 +75,14 @@ exports.search = async (req, res) => {
     const vehicles = await Vehicle.search(q, req.user.workshop_id);
     res.json({ vehicles });
   } catch (err) {
-    console.error('Search vehicles error:', err);
+    logger.error({ err }, 'Search vehicles error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
 
 exports.update = async (req, res) => {
   try {
-    const allowedFields = ['plate_number', 'chassis_number', 'make', 'model', 'year', 'vin', 'mileage'];
+    const allowedFields = ['plate_number', 'chassis_number', 'make', 'model', 'year', 'vin', 'mileage', 'vehicle_type', 'battery_capacity', 'battery_soc', 'battery_health', 'motor_type', 'firmware_version'];
     const updates = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
@@ -91,7 +101,7 @@ exports.update = async (req, res) => {
 
     res.json({ message: 'Vehicle updated successfully.', vehicle });
   } catch (err) {
-    console.error('Update vehicle error:', err);
+    logger.error({ err }, 'Update vehicle error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -101,7 +111,7 @@ exports.getMyVehicles = async (req, res) => {
     const vehicles = await Vehicle.findAllByCustomer(req.user.id);
     res.json({ vehicles });
   } catch (err) {
-    console.error('Get my vehicles error:', err);
+    logger.error({ err }, 'Get my vehicles error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -121,7 +131,7 @@ exports.getVehicleHistory = async (req, res) => {
     const history = await Vehicle.getServiceHistory(req.params.id);
     res.json({ vehicle, history });
   } catch (err) {
-    console.error('Get vehicle history error:', err);
+    logger.error({ err }, 'Get vehicle history error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

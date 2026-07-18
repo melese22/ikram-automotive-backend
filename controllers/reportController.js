@@ -1,4 +1,5 @@
 const db = require('../config/database');
+const logger = require('../config/logger');
 
 exports.dashboard = async (req, res) => {
   try {
@@ -31,7 +32,7 @@ exports.dashboard = async (req, res) => {
       topMechanics: topMechanics.rows,
     });
   } catch (err) {
-    console.error('Dashboard error:', err);
+    logger.error({ err }, 'Dashboard error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -60,7 +61,7 @@ exports.revenueReport = async (req, res) => {
 
     res.json({ report: rows, startDate, endDate, groupBy: groupBy || 'day' });
   } catch (err) {
-    console.error('Revenue report error:', err);
+    logger.error({ err }, 'Revenue report error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -85,7 +86,7 @@ exports.mechanicProductivity = async (req, res) => {
 
     res.json({ mechanics: rows });
   } catch (err) {
-    console.error('Mechanic productivity error:', err);
+    logger.error({ err }, 'Mechanic productivity error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -103,7 +104,7 @@ exports.commonServices = async (req, res) => {
 
     res.json({ services: rows });
   } catch (err) {
-    console.error('Common services error:', err);
+    logger.error({ err }, 'Common services error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -125,7 +126,7 @@ exports.partsUsage = async (req, res) => {
 
     res.json({ parts: rows });
   } catch (err) {
-    console.error('Parts usage error:', err);
+    logger.error({ err }, 'Parts usage error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -146,7 +147,7 @@ exports.appointmentStats = async (req, res) => {
       statusBreakdown: statusCounts.rows,
     });
   } catch (err) {
-    console.error('Appointment stats error:', err);
+    logger.error({ err }, 'Appointment stats error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };

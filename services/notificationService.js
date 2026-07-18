@@ -1,5 +1,6 @@
 const https = require('https');
 const twilio = require('twilio');
+const logger = require('../config/logger');
 
 let twilioClient = null;
 
@@ -36,7 +37,7 @@ async function sendEmail({ to, subject, text, html }) {
     });
     return { success: true, messageId: info.messageId, response: info.response };
   } catch (err) {
-    console.error('Email send error:', err);
+    logger.error({ err }, 'Email send error');
     return { success: false, error: err.message };
   }
 }
@@ -90,7 +91,7 @@ async function sendSMS({ to, message }) {
     });
     return { success: true, messageId: result.sid, response: result.status };
   } catch (err) {
-    console.error('SMS send error:', err);
+    logger.error({ err }, 'SMS send error');
     return { success: false, error: err.message };
   }
 }

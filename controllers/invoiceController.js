@@ -2,11 +2,14 @@ const Invoice = require('../models/Invoice');
 const InvoiceLineItem = require('../models/InvoiceLineItem');
 const JobCard = require('../models/JobCard');
 const PartUsed = require('../models/PartUsed');
+const Workshop = require('../models/Workshop');
 const { initPayment, verifyPayment } = require('../services/chapaService');
+const { generateInvoicePDF } = require('../services/pdfService');
+const logger = require('../config/logger');
 
 exports.generate = async (req, res) => {
   try {
-    const { jobCardId, laborCost, taxRate, notes } = req.body;
+    const { jobCardId, laborCost, taxRate, notes, depositPaid } = req.body;
     if (!jobCardId) {
       return res.status(400).json({ error: 'jobCardId is required.' });
     }
@@ -57,6 +60,7 @@ exports.generate = async (req, res) => {
     const taxAmount = subtotal * (rate / 100);
     const total = subtotal + taxAmount;
 
+    const deposit = parseFloat(depositPaid) || 0;
     const invoice = await Invoice.create({
       invoiceNumber,
       jobCardId,
@@ -68,6 +72,7 @@ exports.generate = async (req, res) => {
       total: Math.round(total * 100) / 100,
       notes: notes || null,
       createdBy: req.user.id,
+      depositPaid: Math.round(deposit * 100) / 100,
     });
 
     const items = await InvoiceLineItem.bulkCreate(
@@ -82,7 +87,7 @@ exports.generate = async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Duplicate invoice number. Try again.' });
     }
-    console.error('Generate invoice error:', err);
+    logger.error({ err }, 'Generate invoice error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -95,7 +100,7 @@ exports.getAll = async (req, res) => {
     const { rows, total } = await Invoice.findByWorkshop(req.user.workshop_id, { limit, offset });
     res.json({ invoices: rows, total, page, limit, totalPages: Math.ceil(total / limit) });
   } catch (err) {
-    console.error('Get invoices error:', err);
+    logger.error({ err }, 'Get invoices error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -105,10 +110,14 @@ exports.getById = async (req, res) => {
     const invoice = await Invoice.findById(req.params.id);
     if (!invoice) return res.status(404).json({ error: 'Invoice not found.' });
 
+    if (req.user.role === 'Customer' && invoice.customer_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
     const lineItems = await InvoiceLineItem.findByInvoice(req.params.id);
     res.json({ invoice: { ...invoice, lineItems } });
   } catch (err) {
-    console.error('Get invoice error:', err);
+    logger.error({ err }, 'Get invoice error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -116,6 +125,9 @@ exports.getById = async (req, res) => {
 exports.getByJobCard = async (req, res) => {
   try {
     const invoices = await Invoice.findByJobCard(req.params.jobCardId);
+    if (req.user.role === 'Customer' && invoices.length > 0 && invoices[0].customer_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
     const enriched = await Promise.all(
       invoices.map(async (inv) => {
         const lineItems = await InvoiceLineItem.findByInvoice(inv.id);
@@ -124,7 +136,7 @@ exports.getByJobCard = async (req, res) => {
     );
     res.json({ invoices: enriched });
   } catch (err) {
-    console.error('Get job card invoices error:', err);
+    logger.error({ err }, 'Get job card invoices error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -140,7 +152,7 @@ exports.getMyInvoices = async (req, res) => {
     );
     res.json({ invoices: enriched });
   } catch (err) {
-    console.error('Get my invoices error:', err);
+    logger.error({ err }, 'Get my invoices error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -158,7 +170,7 @@ exports.updateStatus = async (req, res) => {
 
     res.json({ message: `Invoice ${status.toLowerCase()}.`, invoice });
   } catch (err) {
-    console.error('Update invoice status error:', err);
+    logger.error({ err }, 'Update invoice status error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -172,6 +184,11 @@ exports.initiatePayment = async (req, res) => {
       return res.status(400).json({ error: 'Invoice is already paid.' });
     }
 
+    const payAmount = parseFloat(invoice.balance_due) > 0 ? parseFloat(invoice.balance_due) : parseFloat(invoice.total);
+    if (payAmount <= 0) {
+      return res.status(400).json({ error: 'No remaining balance to pay.' });
+    }
+
     if (invoice.status === 'DRAFT') {
       return res.status(400).json({ error: 'Issue the invoice before requesting payment.' });
     }
@@ -183,7 +200,7 @@ exports.initiatePayment = async (req, res) => {
     const customerEmail = invoice.customer_email || 'customer@ikram.com';
 
     const result = await initPayment({
-      amount: invoice.total,
+      amount: payAmount,
       email: customerEmail,
       firstName: invoice.customer_name || 'Test',
       lastName: 'Customer',
@@ -201,14 +218,14 @@ exports.initiatePayment = async (req, res) => {
 
     res.json({ checkoutUrl });
   } catch (err) {
-    console.error('Initiate payment error:', err);
+    logger.error({ err }, 'Initiate payment error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
 
 exports.paymentCallback = async (req, res) => {
   try {
-    const { tx_ref, status } = req.body;
+    const { tx_ref } = req.body;
 
     if (!tx_ref) {
       return res.status(400).json({ error: 'Missing tx_ref.' });
@@ -220,13 +237,19 @@ exports.paymentCallback = async (req, res) => {
       const invoiceNumber = tx_ref.split('-').slice(0, 3).join('-');
       const invoice = await Invoice.findByNumber(invoiceNumber);
       if (invoice && invoice.status !== 'PAID') {
+        const paidAmount = parseFloat(verification.data.amount);
+        const expectedAmount = parseFloat(invoice.total);
+        if (Math.abs(paidAmount - expectedAmount) > 0.01) {
+          logger.error({ paidAmount, expectedAmount, tx_ref }, 'Payment amount mismatch');
+          return res.status(400).json({ error: 'Payment amount mismatch.' });
+        }
         await Invoice.updateStatus(invoice.id, 'PAID');
       }
     }
 
     res.json({ received: true });
   } catch (err) {
-    console.error('Payment callback error:', err);
+    logger.error({ err }, 'Payment callback error');
     res.json({ received: true });
   }
 };
@@ -242,7 +265,30 @@ exports.getPaymentStatus = async (req, res) => {
       chapaPayUrl: invoice.chapa_pay_url,
     });
   } catch (err) {
-    console.error('Payment status error:', err);
+    logger.error({ err }, 'Payment status error');
     res.status(500).json({ error: 'Internal server error.' });
+  }
+};
+
+exports.downloadPDF = async (req, res) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id);
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found.' });
+
+    if (req.user.role === 'Customer' && invoice.customer_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    const lineItems = await InvoiceLineItem.findByInvoice(invoice.id);
+    const workshop = await Workshop.findById(invoice.workshop_id);
+
+    const pdfBuffer = await generateInvoicePDF(invoice, lineItems, workshop);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoice_number}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    logger.error({ err }, 'PDF generation error');
+    res.status(500).json({ error: 'Failed to generate PDF.' });
   }
 };

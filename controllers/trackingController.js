@@ -5,6 +5,7 @@ const { Milestone, MilestoneTask } = require('../models/Milestone');
 const Media = require('../models/Media');
 const { getFileUrl } = require('../config/s3');
 const { sendNotification } = require('../services/notificationService');
+const logger = require('../config/logger');
 
 exports.track = async (req, res) => {
   try {
@@ -48,7 +49,7 @@ exports.track = async (req, res) => {
       media: enrichedMedia,
     });
   } catch (err) {
-    console.error('Tracking error:', err);
+    logger.error({ err }, 'Tracking error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -90,7 +91,7 @@ exports.generate = async (req, res) => {
         await Notification.updateStatus(log.id, result.success ? 'sent' : 'failed', result.response || result.error);
       }
     } catch (_) {
-      console.warn('Failed to send SMS notification for tracking link (provider not configured).');
+      logger.warn('Failed to send SMS notification for tracking link (provider not configured)');
     }
 
     res.status(201).json({
@@ -99,7 +100,7 @@ exports.generate = async (req, res) => {
       trackingUrl,
     });
   } catch (err) {
-    console.error('Generate tracking error:', err);
+    logger.error({ err }, 'Generate tracking error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -109,7 +110,7 @@ exports.getByJobCard = async (req, res) => {
     const tokens = await TrackingToken.findByJobCard(req.params.jobCardId);
     res.json({ trackingTokens: tokens });
   } catch (err) {
-    console.error('Get tracking tokens error:', err);
+    logger.error({ err }, 'Get tracking tokens error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
@@ -120,7 +121,7 @@ exports.deactivate = async (req, res) => {
     if (!token) return res.status(404).json({ error: 'Tracking token not found.' });
     res.json({ message: 'Tracking link deactivated.', token });
   } catch (err) {
-    console.error('Deactivate tracking error:', err);
+    logger.error({ err }, 'Deactivate tracking error');
     res.status(500).json({ error: 'Internal server error.' });
   }
 };
